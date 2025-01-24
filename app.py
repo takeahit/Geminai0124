@@ -202,32 +202,32 @@ import streamlit.components.v1 as components
 
 st.markdown("<h1 style='text-align: center;'>南江堂用用語チェッカー（笑）</h1>", unsafe_allow_html=True)
 
-if "dify_initialized" not in st.session_state:
-    dify_html = """
-        <script>
-          window.difyChatbotConfig = {
-           token: 'rGMuWhHEu9Hcwbqe'
-          };
-          document.addEventListener('DOMContentLoaded', function() {
-            var script = document.createElement('script');
-            script.src = 'https://udify.app/embed.min.js';
-            script.id = 'rGMuWhHEu9Hcwbqe';
-            script.defer = true;
-            document.head.appendChild(script);
-          });
-        </script>
-        <style>
-          #dify-chatbot-bubble-button {
-            background-color: #1C64F2 !important;
-          }
-          #dify-chatbot-bubble-window {
-            width: 24rem !important;
-            height: 40rem !important;
-          }
-        </style>
-    """
-    components.html(dify_html, height=0)
-    st.session_state["dify_initialized"] = True
+ if "dify_initialized" not in st.session_state:
+        dify_html = """
+            <script>
+              window.difyChatbotConfig = {
+               token: 'YOUR_DIFY_TOKEN'
+              };
+              document.addEventListener('DOMContentLoaded', function() {
+                var script = document.createElement('script');
+                script.src = 'https://udify.app/embed.min.js';
+                script.id = 'rGMuWhHEu9Hcwbqe';
+                script.defer = true;
+                document.head.appendChild(script);
+              });
+            </script>
+            <style>
+              #dify-chatbot-bubble-button {
+                background-color: #1C64F2 !important;
+              }
+              #dify-chatbot-bubble-window {
+                width: 24rem !important;
+                height: 40rem !important;
+              }
+            </style>
+        """
+        components.html(dify_html, height=0)
+        st.session_state["dify_initialized"] = True
 
 st.write("以下のファイルを個別にアップロードしてください:")
 word_file = st.file_uploader("原稿ファイル (Word, DOC, PDF):", type=["docx", "doc", "pdf"])
