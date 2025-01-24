@@ -201,9 +201,9 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 st.markdown("<h1 style='text-align: center;'>南江堂用用語チェッカー（笑）</h1>", unsafe_allow_html=True)
- if "dify_initialized" not in st.session_state:
-        dify_html = """
-            <script>
+if "dify_initialized" not in st.session_state:
+   dify_html = """
+       <script>
               window.difyChatbotConfig = {
                token: 'YOUR_DIFY_TOKEN'
               };
