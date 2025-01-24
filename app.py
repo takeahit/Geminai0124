@@ -105,7 +105,7 @@ def find_similar_terms(
 # --- 修正処理 ---
 def apply_corrections(
     text: str, corrections: List[Tuple[str, str]]
-) -> Tuple[str, int, List[Tuple[str, str, int]]]:
+) -> Tuple[str, int, List[Tuple[str, str]]]:
     """テキストに修正を適用し、修正箇所を記録します."""
     corrected_text = text
     total_replacements = 0
@@ -115,33 +115,28 @@ def apply_corrections(
         while incorrect in corrected_text[start_index:]:
             index = corrected_text.find(incorrect, start_index)
             corrected_text = corrected_text[:index] + correct + corrected_text[index + len(incorrect):]
-            replacement_details.append((incorrect, correct, index))
+            replacement_details.append((incorrect, correct))
             total_replacements += 1
             start_index = index + len(correct)
     return corrected_text, total_replacements, replacement_details
 
-
-
 def create_corrected_word_file_with_formatting(
-    original_text: str, corrections: List[Tuple[str, str, int]]
+    original_text: str, corrections: List[Tuple[str, str]]
 ) -> BytesIO:
     """修正を適用したWordファイルを生成します."""
     doc = Document()
     for paragraph_text in original_text.split("\n"):
         paragraph = doc.add_paragraph()
         start_index = 0
-        for incorrect, correct, index in corrections:
+        for incorrect, correct in corrections:
             while incorrect in paragraph_text[start_index:]:
                 start_index = paragraph_text.find(incorrect, start_index)
-                if start_index < index:
-                    paragraph.add_run(paragraph_text[:start_index])
-                if start_index == index:
-                    end_index = start_index + len(incorrect)
-                    run = paragraph.add_run(correct)
-                    run.font.highlight_color = HIGHLIGHT_COLOR
-                    paragraph_text = paragraph_text[end_index:]
-                    start_index = 0
-                    break
+                end_index = start_index + len(incorrect)
+                paragraph.add_run(paragraph_text[:start_index])
+                run = paragraph.add_run(correct)
+                run.font.highlight_color = HIGHLIGHT_COLOR
+                paragraph_text = paragraph_text[end_index:]
+                start_index = 0
         try:
             paragraph.add_run(paragraph_text)
         except UnicodeEncodeError as e:
@@ -155,7 +150,7 @@ def create_corrected_word_file_with_formatting(
 # --- データ表示とダウンロード ---
 def create_correction_table(detected: List[Tuple[str, str, int]]) -> pd.DataFrame:
     """検出された類似語をデータフレームに変換します."""
-    return pd.DataFrame(detected, columns=["原稿内の語", "類似する用語", "位置"])
+    return pd.DataFrame(detected, columns=["原稿内の語", "類似する用語"])
 
 def download_excel(df: pd.DataFrame, file_name: str, sheet_name: str):
     """データフレームをExcelファイルとしてダウンロードします."""
@@ -228,7 +223,7 @@ def process_file(word_file, terms_file, correction_file, kanji_file):
                 st.success(f"正誤表を適用し、{replacements}回の修正を行いました！")
                 
                 corrections_df = pd.DataFrame(
-                    replacement_details, columns=["誤った用語", "正しい用語", "位置"]
+                    replacement_details, columns=["誤った用語", "正しい用語"]
                 )
                 st.dataframe(corrections_df)
                 download_excel(corrections_df, "正誤表修正箇所.xlsx", "正誤表修正箇所")
@@ -252,7 +247,7 @@ def process_file(word_file, terms_file, correction_file, kanji_file):
             total_replacements += replacements
             st.success(f"利用漢字表を適用し、{replacements}回の修正を行いました！")
 
-            kanji_corrections_df = pd.DataFrame(replacement_details, columns=["ひらがな", "漢字", "位置"])
+            kanji_corrections_df = pd.DataFrame(replacement_details, columns=["ひらがな", "漢字"])
             st.dataframe(kanji_corrections_df)
             download_excel(kanji_corrections_df, "利用漢字表修正箇所.xlsx", "漢字修正箇所")
 
@@ -262,6 +257,7 @@ def process_file(word_file, terms_file, correction_file, kanji_file):
             download_word(corrected_file, "利用漢字表修正済み.docx")
             
     st.markdown(f"<h3 style='text-align: left;'>正誤表と利用漢字表を適用し、{total_replacements}回の修正を行いました！</h3>", unsafe_allow_html=True)
+
 
 # --- Streamlit アプリケーション ---
 st.set_page_config(layout="wide")  # ページ全体のレイアウトをワイドにする
