@@ -6,3 +6,4 @@ pydocx
 PyPDF2
 openpyxl
 lxml
+xlsxwriter
