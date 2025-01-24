@@ -200,28 +200,32 @@ def process_file(word_file, terms_file, correction_file, kanji_file):
 st.markdown("<h1 style='text-align: center;'>南江堂用用語チェッカー（笑）</h1>", unsafe_allow_html=True)
 
 # Dify Chatbot埋め込み
-dify_html = """
-    <script>
-      window.difyChatbotConfig = {
-       token: 'rGMuWhHEu9Hcwbqe'
-      }
-    </script>
-    <script
-     src="https://udify.app/embed.min.js"
-     id="rGMuWhHEu9Hcwbqe"
-     defer>
-    </script>
-    <style>
-      #dify-chatbot-bubble-button {
-        background-color: #1C64F2 !important;
-      }
-      #dify-chatbot-bubble-window {
-        width: 24rem !important;
-        height: 40rem !important;
-      }
-    </style>
-    """
-components.html(dify_html, height=0) # height=0 で表示を抑制し、初期化のみを行う
+if "dify_initialized" not in st.session_state:
+    dify_html = """
+        <script>
+          window.difyChatbotConfig = {
+           token: 'rGMuWhHEu9Hcwbqe'
+          };
+          document.addEventListener('DOMContentLoaded', function() {
+            var script = document.createElement('script');
+            script.src = 'https://udify.app/embed.min.js';
+            script.id = 'rGMuWhHEu9Hcwbqe';
+            script.defer = true;
+            document.head.appendChild(script);
+          });
+        </script>
+        <style>
+          #dify-chatbot-bubble-button {
+            background-color: #1C64F2 !important;
+          }
+          #dify-chatbot-bubble-window {
+            width: 24rem !important;
+            height: 40rem !important;
+          }
+        </style>
+        """
+    components.html(dify_html, height=0)
+    st.session_state["dify_initialized"] = True # 初期化済みフラグを設定
 
 st.write("以下のファイルを個別にアップロードしてください:")
 word_file = st.file_uploader("原稿ファイル (Word, DOC, PDF):", type=["docx", "doc", "pdf"])
