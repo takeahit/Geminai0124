@@ -197,9 +197,11 @@ def process_file(word_file, terms_file, correction_file, kanji_file):
 
 
 # --- Streamlit アプリケーション ---
+import streamlit as st
+import streamlit.components.v1 as components
+
 st.markdown("<h1 style='text-align: center;'>南江堂用用語チェッカー（笑）</h1>", unsafe_allow_html=True)
 
-# Dify Chatbot埋め込み
 if "dify_initialized" not in st.session_state:
     dify_html = """
         <script>
@@ -223,9 +225,9 @@ if "dify_initialized" not in st.session_state:
             height: 40rem !important;
           }
         </style>
-        """
+    """
     components.html(dify_html, height=0)
-    st.session_state["dify_initialized"] = True # 初期化済みフラグを設定
+    st.session_state["dify_initialized"] = True
 
 st.write("以下のファイルを個別にアップロードしてください:")
 word_file = st.file_uploader("原稿ファイル (Word, DOC, PDF):", type=["docx", "doc", "pdf"])
