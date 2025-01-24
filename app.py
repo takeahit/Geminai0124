@@ -9,6 +9,7 @@ from PyPDF2 import PdfReader
 import re
 import streamlit.components.v1 as components
 
+
 # --- エラーハンドリングとログ記録 ---
 def log_error(message):
     st.error(message)
@@ -194,8 +195,33 @@ def process_file(word_file, terms_file, correction_file, kanji_file):
             corrected_file = create_corrected_word_file_with_formatting(original_text, corrections)
             download_word(corrected_file, "利用漢字表修正済み.docx")
 
+
 # --- Streamlit アプリケーション ---
 st.markdown("<h1 style='text-align: center;'>南江堂用用語チェッカー（笑）</h1>", unsafe_allow_html=True)
+
+# Dify Chatbot埋め込み
+dify_html = """
+    <script>
+      window.difyChatbotConfig = {
+       token: 'rGMuWhHEu9Hcwbqe'
+      }
+    </script>
+    <script
+     src="https://udify.app/embed.min.js"
+     id="rGMuWhHEu9Hcwbqe"
+     defer>
+    </script>
+    <style>
+      #dify-chatbot-bubble-button {
+        background-color: #1C64F2 !important;
+      }
+      #dify-chatbot-bubble-window {
+        width: 24rem !important;
+        height: 40rem !important;
+      }
+    </style>
+    """
+components.html(dify_html, height=0) # height=0 で表示を抑制し、初期化のみを行う
 
 st.write("以下のファイルを個別にアップロードしてください:")
 word_file = st.file_uploader("原稿ファイル (Word, DOC, PDF):", type=["docx", "doc", "pdf"])
@@ -209,31 +235,6 @@ for file, name in [(word_file, "原稿ファイル"), (terms_file, "用語集フ
     if file and file.size > max_size:
         st.error(f"{name}のサイズが大きすぎます（100MB以下にしてください）。")
         st.stop()
-
-# Dify Chatbot の埋め込みコード
-dify_chatbot_code = """
-<script>
- window.difyChatbotConfig = {
-  token: 'rGMuWhHEu9Hcwbqe'
- }
-</script>
-<script
- src="https://udify.app/embed.min.js"
- id="rGMuWhHEu9Hcwbqe"
- defer>
-</script>
-<style>
-  #dify-chatbot-bubble-button {
-    background-color: #1C64F2 !important;
-  }
-  #dify-chatbot-bubble-window {
-    width: 24rem !important;
-    height: 40rem !important;
-  }
-</style>
-"""
-# Streamlitに埋め込む
-components.html(dify_chatbot_code, height=0) #height=0 で表示上のスペースをなくす
 
 if word_file and (terms_file or correction_file or kanji_file):
     process_file(word_file, terms_file, correction_file, kanji_file)
