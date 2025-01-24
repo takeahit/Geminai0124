@@ -202,30 +202,38 @@ import streamlit.components.v1 as components
 
 st.markdown("<h1 style='text-align: center;'>南江堂用用語チェッカー（笑）</h1>", unsafe_allow_html=True)
 
-iframe_html = """
-    <iframe
-      src="https://udify.app/chatbot/rGMuWhHEu9Hcwbqe"
-      style="width: 100%; height: 700px; min-height: 700px"
-      frameborder="0"
-      allow="microphone">
-    </iframe>
-"""
-components.html(iframe_html, height=700)
+# 左右のカラムを作成
+col1, col2 = st.columns([1, 2]) # col1 の幅を 1、 col2 の幅を 2 に設定
 
-st.write("以下のファイルを個別にアップロードしてください:")
-word_file = st.file_uploader("原稿ファイル (Word, DOC, PDF):", type=["docx", "doc", "pdf"])
-terms_file = st.file_uploader("用語集ファイル (A列に正しい用語を記載したExcel):", type=["xlsx"])
-correction_file = st.file_uploader("正誤表ファイル (A列に誤った用語、B列に正しい用語を記載したExcel):", type=["xlsx"])
-kanji_file = st.file_uploader("利用漢字表ファイル (A列にひらがな、B列に漢字を記載したExcel):", type=["xlsx"])
+# 左側のカラム（Difyチャットボット）
+with col1:
+    iframe_html = """
+        <iframe
+          src="https://udify.app/chatbot/rGMuWhHEu9Hcwbqe"
+          style="width: 100%; height: 700px; min-height: 700px"
+          frameborder="0"
+          allow="microphone">
+        </iframe>
+    """
+    components.html(iframe_html, height=700)
 
-# ファイルサイズの制限 (100MB以下)
-max_size = 100 * 1024 * 1024
-for file, name in [(word_file, "原稿ファイル"), (terms_file, "用語集ファイル"), (correction_file, "正誤表ファイル"), (kanji_file, "利用漢字表ファイル")]:
-    if file and file.size > max_size:
-        st.error(f"{name}のサイズが大きすぎます（100MB以下にしてください）。")
-        st.stop()
+# 右側のカラム（ファイルアップローダー）
+with col2:
+    st.write("以下のファイルを個別にアップロードしてください:")
+    word_file = st.file_uploader("原稿ファイル (Word, DOC, PDF):", type=["docx", "doc", "pdf"])
+    terms_file = st.file_uploader("用語集ファイル (A列に正しい用語を記載したExcel):", type=["xlsx"])
+    correction_file = st.file_uploader("正誤表ファイル (A列に誤った用語、B列に正しい用語を記載したExcel):", type=["xlsx"])
+    kanji_file = st.file_uploader("利用漢字表ファイル (A列にひらがな、B列に漢字を記載したExcel):", type=["xlsx"])
 
-if word_file and (terms_file or correction_file or kanji_file):
-    process_file(word_file, terms_file, correction_file, kanji_file)
-else:
-    st.warning("原稿ファイルと、用語集、正誤表、利用漢字表のいずれかをアップロードしてください！")
+    # ファイルサイズの制限 (100MB以下)
+    max_size = 100 * 1024 * 1024
+    for file, name in [(word_file, "原稿ファイル"), (terms_file, "用語集ファイル"), (correction_file, "正誤表ファイル"), (kanji_file, "利用漢字表ファイル")]:
+        if file and file.size > max_size:
+            st.error(f"{name}のサイズが大きすぎます（100MB以下にしてください）。")
+            st.stop()
+
+    if word_file and (terms_file or correction_file or kanji_file):
+        # ここにあなたの処理関数を呼び出すコードを記述
+        pass
+    else:
+        st.warning("原稿ファイルと、用語集、正誤表、利用漢字表のいずれかをアップロードしてください！")
