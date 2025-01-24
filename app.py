@@ -112,13 +112,16 @@ def apply_corrections(
     replacement_details = []
     for incorrect, correct in corrections:
         start_index = 0
-        while incorrect in corrected_text[start_index:]:
+        while True:
             index = corrected_text.find(incorrect, start_index)
+            if index == -1:
+                break  # incorrect が見つからなくなったらループを抜ける
             corrected_text = corrected_text[:index] + correct + corrected_text[index + len(incorrect):]
             replacement_details.append((incorrect, correct))
             total_replacements += 1
             start_index = index + len(correct)
-    return corrected_text, total_replacements, replacement_details
+        return corrected_text, total_replacements, replacement_details
+
 
 def create_corrected_word_file_with_formatting(
     original_text: str, corrections: List[Tuple[str, str]]
@@ -257,7 +260,6 @@ def process_file(word_file, terms_file, correction_file, kanji_file):
             download_word(corrected_file, "利用漢字表修正済み.docx")
             
     st.markdown(f"<h3 style='text-align: left;'>正誤表と利用漢字表を適用し、{total_replacements}回の修正を行いました！</h3>", unsafe_allow_html=True)
-
 
 # --- Streamlit アプリケーション ---
 st.set_page_config(layout="wide")  # ページ全体のレイアウトをワイドにする
