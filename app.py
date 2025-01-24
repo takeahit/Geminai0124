@@ -1,38 +1,47 @@
-import pandas as pd
-from rapidfuzz import fuzz, process
-from docx import Document
-from docx.shared import RGBColor
-from io import BytesIO
-from pydocx import PyDocX
-import streamlit as st
-from PyPDF2 import PdfReader
 import re
-import streamlit.components.v1 as components
+from io import BytesIO
+from typing import List, Tuple, Optional
 
+import pandas as pd
+import streamlit as st
+import streamlit.components.v1 as components
+from docx import Document
+from rapidfuzz import fuzz, process
+from pydocx import PyDocX
+from PyPDF2 import PdfReader
+
+# --- 定数 ---
+MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
+HIGHLIGHT_COLOR = 6
 
 # --- エラーハンドリングとログ記録 ---
-def log_error(message):
+def log_error(message: str):
+    """エラーメッセージをログに記録し、Streamlitに表示します."""
     st.error(message)
     # 必要であればログファイルにも出力する
 
 # --- データクリーニング ---
-def clean_strings(df):
-    def clean_cell(value):
+def clean_strings(df: pd.DataFrame) -> pd.DataFrame:
+    """文字列データから制御文字を削除します."""
+    def clean_cell(value: str) -> str:
         if isinstance(value, str):
-            return re.sub(r'[\x00-\x1F\x7F]', '', value)
+            return re.sub(r"[\x00-\x1F\x7F]", "", value)
         return value
+
     return df.applymap(clean_cell)
 
-def find_invalid_chars(df):
+def find_invalid_chars(df: pd.DataFrame) -> List[Tuple[str, int, str]]:
+    """データフレーム内の非互換文字を検出します."""
     invalid_rows = []
     for col in df.columns:
         for idx, value in df[col].items():
-            if isinstance(value, str) and re.search(r'[\x00-\x1F\x7F]', value):
+            if isinstance(value, str) and re.search(r"[\x00-\x1F\x7F]", value):
                 invalid_rows.append((col, idx, value))
     return invalid_rows
 
 # --- ファイル読み込み ---
-def load_excel(file):
+def load_excel(file) -> Optional[pd.DataFrame]:
+    """Excelファイルを読み込みます。エラー時はNoneを返します."""
     try:
         df = pd.read_excel(file, engine="openpyxl")
         if df.columns.size < 1:
@@ -42,7 +51,8 @@ def load_excel(file):
         log_error(f"Excelファイルの読み込み中にエラーが発生しました: {e}")
         return None
 
-def extract_text_from_file(file, file_type):
+def extract_text_from_file(file, file_type: str) -> str:
+    """ファイルからテキストを抽出します。エラー時は空文字列を返します."""
     try:
         if file_type == "docx":
             doc = Document(file)
@@ -57,8 +67,7 @@ def extract_text_from_file(file, file_type):
                 page_text = page_text.replace("\n", " ").replace("\r", " ")
                 page_text = " ".join(page_text.split())
                 text += page_text + " "
-            text = text.strip()
-            return text
+            return text.strip()
         else:
             return ""
     except Exception as e:
@@ -66,18 +75,24 @@ def extract_text_from_file(file, file_type):
         return ""
 
 # --- Fuzzy Matching ---
-def find_similar_terms(text, terms, threshold):
+def find_similar_terms(
+    text: str, terms: List[str], threshold: int
+) -> List[Tuple[str, str, int]]:
+    """テキスト内で類似する用語を検出します."""
     words = text.split()
     detected_terms = []
     for word in words:
         matches = process.extract(word, terms, scorer=fuzz.partial_ratio, limit=10)
         for match in matches:
-            if match[1] >= threshold and match[1] < 100:
+            if threshold <= match[1] < 100:
                 detected_terms.append((word, match[0], match[1]))
     return detected_terms
 
 # --- 修正処理 ---
-def apply_corrections(text, corrections):
+def apply_corrections(
+    text: str, corrections: List[Tuple[str, str]]
+) -> Tuple[str, int]:
+    """テキストに修正を適用します."""
     total_replacements = 0
     for incorrect, correct in corrections:
         max_replacements = text.count(incorrect)
@@ -89,7 +104,10 @@ def apply_corrections(text, corrections):
                 break
     return text, total_replacements
 
-def create_corrected_word_file_with_formatting(original_text, corrections):
+def create_corrected_word_file_with_formatting(
+    original_text: str, corrections: List[Tuple[str, str]]
+) -> BytesIO:
+    """修正を適用したWordファイルを生成します."""
     doc = Document()
     for paragraph_text in original_text.split("\n"):
         paragraph = doc.add_paragraph()
@@ -100,7 +118,7 @@ def create_corrected_word_file_with_formatting(original_text, corrections):
                 end_index = start_index + len(incorrect)
                 paragraph.add_run(paragraph_text[:start_index])
                 run = paragraph.add_run(correct)
-                run.font.highlight_color = 6
+                run.font.highlight_color = HIGHLIGHT_COLOR
                 paragraph_text = paragraph_text[end_index:]
                 start_index = 0
         paragraph.add_run(paragraph_text)
@@ -110,10 +128,12 @@ def create_corrected_word_file_with_formatting(original_text, corrections):
     return output
 
 # --- データ表示とダウンロード ---
-def create_correction_table(detected):
+def create_correction_table(detected: List[Tuple[str, str, int]]) -> pd.DataFrame:
+    """検出された類似語をデータフレームに変換します."""
     return pd.DataFrame(detected, columns=["原稿内の語", "類似する用語", "類似度"])
 
-def download_excel(df, file_name, sheet_name):
+def download_excel(df: pd.DataFrame, file_name: str, sheet_name: str):
+    """データフレームをExcelファイルとしてダウンロードします."""
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         df.to_excel(writer, index=False, sheet_name=sheet_name)
@@ -124,8 +144,9 @@ def download_excel(df, file_name, sheet_name):
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
-def download_word(file, file_name):
-     st.download_button(
+def download_word(file: BytesIO, file_name: str):
+    """Wordファイルをダウンロードします."""
+    st.download_button(
         label="修正済みファイルをダウンロード",
         data=file.getvalue(),
         file_name=file_name,
@@ -134,6 +155,11 @@ def download_word(file, file_name):
 
 # --- メイン処理関数 ---
 def process_file(word_file, terms_file, correction_file, kanji_file):
+    """アップロードされたファイルに基づいて処理を行います."""
+    if not word_file:
+        st.warning("原稿ファイルをアップロードしてください。")
+        return
+
     file_type = word_file.name.split(".")[-1]
     original_text = extract_text_from_file(word_file, file_type)
 
@@ -148,7 +174,9 @@ def process_file(word_file, terms_file, correction_file, kanji_file):
         if terms_df is not None:
             terms_df = clean_strings(terms_df)
             terms = terms_df.iloc[:, 0].dropna().astype(str).tolist()
-            threshold = st.slider("類似度の閾値を設定してください (50-99):", min_value=50, max_value=99, value=65)
+            threshold = st.slider(
+                "類似度の閾値を設定してください (50-99):", min_value=50, max_value=99, value=65
+            )
             detected = find_similar_terms(original_text, terms, threshold)
             if detected:
                 st.success(f"類似語が{len(detected)}件検出されました！")
@@ -166,15 +194,21 @@ def process_file(word_file, terms_file, correction_file, kanji_file):
                 st.error(f"非互換文字が検出されました: {invalid_chars}")
             else:
                 corrections = list(correction_df.itertuples(index=False, name=None))
-                updated_text, total_replacements = apply_corrections(original_text, corrections)
+                updated_text, total_replacements = apply_corrections(
+                    original_text, corrections
+                )
                 all_corrections.extend(corrections)
                 st.success(f"正誤表を適用し、{total_replacements}回の修正を行いました！")
 
-                corrections_df = pd.DataFrame(corrections, columns=["誤った用語", "正しい用語"])
+                corrections_df = pd.DataFrame(
+                    corrections, columns=["誤った用語", "正しい用語"]
+                )
                 st.dataframe(corrections_df)
                 download_excel(corrections_df, "正誤表修正箇所.xlsx", "正誤表修正箇所")
 
-                corrected_file = create_corrected_word_file_with_formatting(original_text, corrections)
+                corrected_file = create_corrected_word_file_with_formatting(
+                    original_text, corrections
+                )
                 download_word(corrected_file, "正誤表修正済み.docx")
 
 
@@ -184,7 +218,9 @@ def process_file(word_file, terms_file, correction_file, kanji_file):
         if kanji_df is not None:
             kanji_df = clean_strings(kanji_df)
             corrections = list(kanji_df.itertuples(index=False, name=None))
-            updated_text, total_replacements = apply_corrections(original_text, corrections)
+            updated_text, total_replacements = apply_corrections(
+                original_text, corrections
+            )
             all_corrections.extend(corrections)
             st.success(f"利用漢字表を適用し、{total_replacements}回の修正を行いました！")
 
@@ -192,15 +228,13 @@ def process_file(word_file, terms_file, correction_file, kanji_file):
             st.dataframe(kanji_corrections_df)
             download_excel(kanji_corrections_df, "利用漢字表修正箇所.xlsx", "漢字修正箇所")
 
-            corrected_file = create_corrected_word_file_with_formatting(original_text, corrections)
+            corrected_file = create_corrected_word_file_with_formatting(
+                original_text, corrections
+            )
             download_word(corrected_file, "利用漢字表修正済み.docx")
 
-
 # --- Streamlit アプリケーション ---
-import streamlit as st
-import streamlit.components.v1 as components
-
-st.set_page_config(layout="wide") # ページ全体のレイアウトをワイドにする
+st.set_page_config(layout="wide")  # ページ全体のレイアウトをワイドにする
 
 st.markdown("<h1 style='text-align: center;'>南江堂用用語チェッカー（笑）</h1>", unsafe_allow_html=True)
 
@@ -224,18 +258,25 @@ with col2:
     st.write("以下のファイルを個別にアップロードしてください:")
     word_file = st.file_uploader("原稿ファイル (Word, DOC, PDF):", type=["docx", "doc", "pdf"])
     terms_file = st.file_uploader("用語集ファイル (A列に正しい用語を記載したExcel):", type=["xlsx"])
-    correction_file = st.file_uploader("正誤表ファイル (A列に誤った用語、B列に正しい用語を記載したExcel):", type=["xlsx"])
-    kanji_file = st.file_uploader("利用漢字表ファイル (A列にひらがな、B列に漢字を記載したExcel):", type=["xlsx"])
+    correction_file = st.file_uploader(
+        "正誤表ファイル (A列に誤った用語、B列に正しい用語を記載したExcel):", type=["xlsx"]
+    )
+    kanji_file = st.file_uploader(
+        "利用漢字表ファイル (A列にひらがな、B列に漢字を記載したExcel):", type=["xlsx"]
+    )
 
     # ファイルサイズの制限 (100MB以下)
-    max_size = 100 * 1024 * 1024
-    for file, name in [(word_file, "原稿ファイル"), (terms_file, "用語集ファイル"), (correction_file, "正誤表ファイル"), (kanji_file, "利用漢字表ファイル")]:
-        if file and file.size > max_size:
-            st.error(f"{name}のサイズが大きすぎます（100MB以下にしてください）。")
+    for file, name in [
+        (word_file, "原稿ファイル"),
+        (terms_file, "用語集ファイル"),
+        (correction_file, "正誤表ファイル"),
+        (kanji_file, "利用漢字表ファイル"),
+    ]:
+        if file and file.size > MAX_FILE_SIZE:
+            st.error(f"{name}のサイズが大きすぎます（{MAX_FILE_SIZE / (1024 * 1024)}MB以下にしてください）。")
             st.stop()
 
     if word_file and (terms_file or correction_file or kanji_file):
-        # ここにあなたの処理関数を呼び出すコードを記述
-        pass
+        process_file(word_file, terms_file, correction_file, kanji_file)
     else:
         st.warning("原稿ファイルと、用語集、正誤表、利用漢字表のいずれかをアップロードしてください！")
