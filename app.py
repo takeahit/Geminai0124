@@ -205,7 +205,7 @@ if "dify_initialized" not in st.session_state:
    dify_html = """
        <script>
               window.difyChatbotConfig = {
-               token: 'YOUR_DIFY_TOKEN'
+               token: 'rGMuWhHEu9Hcwbqe'
               };
               document.addEventListener('DOMContentLoaded', function() {
                 var script = document.createElement('script');
