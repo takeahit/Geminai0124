@@ -12,7 +12,7 @@ from PyPDF2 import PdfReader
 import unicodedata
 
 # --- 定数 ---
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_FILE_SIZE = 200 * 1024 * 1024  # 200MB
 HIGHLIGHT_COLOR = 6
 
 
@@ -222,7 +222,7 @@ with col2:
     correction_file = st.file_uploader("正誤表ファイル (A列に誤った用語、B列に正しい用語を記載したExcel):", type=["xlsx"])
     kanji_file = st.file_uploader("利用漢字表ファイル (A列にひらがな、B列に漢字を記載したExcel):", type=["xlsx"])
 
-    # アップロードファイルサイズの制限 (10MB以下)
+    # アップロードファイルサイズの制限 (200MB以下)
     for file, name in [
         (word_file, "原稿ファイル"),
         (terms_file, "用語集ファイル"),
