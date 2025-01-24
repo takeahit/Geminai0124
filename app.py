@@ -30,9 +30,9 @@ def clean_strings(df: pd.DataFrame) -> pd.DataFrame:
         return value
 
     def remove_control_characters(text):
-            if isinstance(text, str):
-                return ''.join(ch for ch in text if unicodedata.category(ch)[0] != 'C')
-            return text
+        if isinstance(text, str):
+            return ''.join(ch for ch in text if unicodedata.category(ch)[0] != 'C')
+        return text
 
     df = df.applymap(clean_cell)
     df = df.applymap(remove_control_characters)
@@ -105,41 +105,43 @@ def find_similar_terms(
 # --- 修正処理 ---
 def apply_corrections(
     text: str, corrections: List[Tuple[str, str]]
-) -> Tuple[str, int]:
-    """テキストに修正を適用します."""
+) -> Tuple[str, int, List[Tuple[str, str, int]]]:
+    """テキストに修正を適用し、修正箇所を記録します."""
+    corrected_text = text
     total_replacements = 0
+    replacement_details = []
     for incorrect, correct in corrections:
-        max_replacements = text.count(incorrect)
-        for _ in range(max_replacements):
-            if incorrect in text:
-                text = text.replace(incorrect, correct, 1)
-                total_replacements += 1
-            else:
-                break
-    return text, total_replacements
+        start_index = 0
+        while incorrect in corrected_text[start_index:]:
+            index = corrected_text.find(incorrect, start_index)
+            corrected_text = corrected_text[:index] + correct + corrected_text[index + len(incorrect):]
+            replacement_details.append((incorrect, correct, index))
+            total_replacements += 1
+            start_index = index + len(correct)
+    return corrected_text, total_replacements, replacement_details
+
+
 
 def create_corrected_word_file_with_formatting(
-    original_text: str, corrections: List[Tuple[str, str]]
+    original_text: str, corrections: List[Tuple[str, str, int]]
 ) -> BytesIO:
     """修正を適用したWordファイルを生成します."""
     doc = Document()
     for paragraph_text in original_text.split("\n"):
         paragraph = doc.add_paragraph()
         start_index = 0
-        for incorrect, correct in corrections:
+        for incorrect, correct, index in corrections:
             while incorrect in paragraph_text[start_index:]:
                 start_index = paragraph_text.find(incorrect, start_index)
-                end_index = start_index + len(incorrect)
-                paragraph.add_run(paragraph_text[:start_index])
-                try:
+                if start_index < index:
+                    paragraph.add_run(paragraph_text[:start_index])
+                if start_index == index:
+                    end_index = start_index + len(incorrect)
                     run = paragraph.add_run(correct)
-                    run.font.highlight_color = 6
-                except UnicodeEncodeError as e:
-                    log_error(f"テキストの追加中にエンコードエラーが発生しました: {e}. 正しい用語をスキップします。")
-                    run = paragraph.add_run(correct.encode('unicode_escape').decode('utf-8'))  # エンコードエラー発生時、エスケープ処理を行う
-                    run.font.highlight_color = 6
-                paragraph_text = paragraph_text[end_index:]
-                start_index = 0
+                    run.font.highlight_color = HIGHLIGHT_COLOR
+                    paragraph_text = paragraph_text[end_index:]
+                    start_index = 0
+                    break
         try:
             paragraph.add_run(paragraph_text)
         except UnicodeEncodeError as e:
@@ -153,7 +155,7 @@ def create_corrected_word_file_with_formatting(
 # --- データ表示とダウンロード ---
 def create_correction_table(detected: List[Tuple[str, str, int]]) -> pd.DataFrame:
     """検出された類似語をデータフレームに変換します."""
-    return pd.DataFrame(detected, columns=["原稿内の語", "類似する用語", "類似度"])
+    return pd.DataFrame(detected, columns=["原稿内の語", "類似する用語", "位置"])
 
 def download_excel(df: pd.DataFrame, file_name: str, sheet_name: str):
     """データフレームをExcelファイルとしてダウンロードします."""
@@ -190,6 +192,7 @@ def process_file(word_file, terms_file, correction_file, kanji_file):
         return
 
     all_corrections = []
+    total_replacements = 0
 
     # 用語集の処理
     if terms_file:
@@ -217,20 +220,21 @@ def process_file(word_file, terms_file, correction_file, kanji_file):
                 st.error(f"非互換文字が検出されました: {invalid_chars}")
             else:
                 corrections = list(correction_df.itertuples(index=False, name=None))
-                updated_text, total_replacements = apply_corrections(
+                updated_text, replacements, replacement_details = apply_corrections(
                     original_text, corrections
                 )
-                all_corrections.extend(corrections)
-                st.success(f"正誤表を適用し、{total_replacements}回の修正を行いました！")
-
+                all_corrections.extend(replacement_details)
+                total_replacements += replacements
+                st.success(f"正誤表を適用し、{replacements}回の修正を行いました！")
+                
                 corrections_df = pd.DataFrame(
-                    corrections, columns=["誤った用語", "正しい用語"]
+                    replacement_details, columns=["誤った用語", "正しい用語", "位置"]
                 )
                 st.dataframe(corrections_df)
                 download_excel(corrections_df, "正誤表修正箇所.xlsx", "正誤表修正箇所")
 
                 corrected_file = create_corrected_word_file_with_formatting(
-                    original_text, corrections
+                    original_text, replacement_details
                 )
                 download_word(corrected_file, "正誤表修正済み.docx")
 
@@ -241,20 +245,23 @@ def process_file(word_file, terms_file, correction_file, kanji_file):
         if kanji_df is not None:
             kanji_df = clean_strings(kanji_df)
             corrections = list(kanji_df.itertuples(index=False, name=None))
-            updated_text, total_replacements = apply_corrections(
+            updated_text, replacements, replacement_details = apply_corrections(
                 original_text, corrections
             )
-            all_corrections.extend(corrections)
-            st.success(f"利用漢字表を適用し、{total_replacements}回の修正を行いました！")
+            all_corrections.extend(replacement_details)
+            total_replacements += replacements
+            st.success(f"利用漢字表を適用し、{replacements}回の修正を行いました！")
 
-            kanji_corrections_df = pd.DataFrame(corrections, columns=["ひらがな", "漢字"])
+            kanji_corrections_df = pd.DataFrame(replacement_details, columns=["ひらがな", "漢字", "位置"])
             st.dataframe(kanji_corrections_df)
             download_excel(kanji_corrections_df, "利用漢字表修正箇所.xlsx", "漢字修正箇所")
 
             corrected_file = create_corrected_word_file_with_formatting(
-                original_text, corrections
+                original_text, replacement_details
             )
             download_word(corrected_file, "利用漢字表修正済み.docx")
+            
+    st.markdown(f"<h3 style='text-align: left;'>正誤表と利用漢字表を適用し、{total_replacements}回の修正を行いました！</h3>", unsafe_allow_html=True)
 
 # --- Streamlit アプリケーション ---
 st.set_page_config(layout="wide")  # ページ全体のレイアウトをワイドにする
