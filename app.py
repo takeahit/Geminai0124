@@ -114,15 +114,14 @@ def apply_corrections(
     for incorrect, correct in corrections:
         start_index = 0
         while True:
-            index = corrected_text.find(incorrect, start_index)
-            if index == -1:
-                break  # incorrect が見つからなくなったらループを抜ける
-            corrected_text = corrected_text[:index] + correct + corrected_text[index + len(incorrect):]
-            replacement_details.append((incorrect, correct))
-            total_replacements += 1
-            start_index = index + len(correct)
-        return corrected_text, total_replacements, replacement_details
-
+             index = corrected_text.find(incorrect, start_index)
+             if index == -1:
+                break
+             corrected_text = corrected_text[:index] + correct + corrected_text[index + len(incorrect):]
+             replacement_details.append((incorrect, correct))
+             total_replacements += 1
+             start_index = index + len(correct)
+    return corrected_text, total_replacements, replacement_details
 
 def create_corrected_word_file_with_formatting(
     original_text: str, corrections: List[Tuple[str, str]]
