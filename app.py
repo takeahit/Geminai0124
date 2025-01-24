@@ -9,6 +9,7 @@ from docx import Document
 from rapidfuzz import fuzz, process
 from pydocx import PyDocX
 from PyPDF2 import PdfReader
+import unicodedata
 
 # --- 定数 ---
 MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
@@ -28,7 +29,15 @@ def clean_strings(df: pd.DataFrame) -> pd.DataFrame:
             return re.sub(r"[\x00-\x1F\x7F]", "", value)
         return value
 
-    return df.applymap(clean_cell)
+    def remove_control_characters(text):
+            if isinstance(text, str):
+                return ''.join(ch for ch in text if unicodedata.category(ch)[0] != 'C')
+            return text
+
+    df = df.applymap(clean_cell)
+    df = df.applymap(remove_control_characters)
+    return df
+
 
 def find_invalid_chars(df: pd.DataFrame) -> List[Tuple[str, int, str]]:
     """データフレーム内の非互換文字を検出します."""
@@ -56,9 +65,9 @@ def extract_text_from_file(file, file_type: str) -> str:
     try:
         if file_type == "docx":
             doc = Document(file)
-            return "\n".join([paragraph.text for paragraph in doc.paragraphs])
+            text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
         elif file_type == "doc":
-            return PyDocX.to_text(file)
+             text = PyDocX.to_text(file)
         elif file_type == "pdf":
             reader = PdfReader(file)
             text = ""
@@ -67,9 +76,14 @@ def extract_text_from_file(file, file_type: str) -> str:
                 page_text = page_text.replace("\n", " ").replace("\r", " ")
                 page_text = " ".join(page_text.split())
                 text += page_text + " "
-            return text.strip()
+            text = text.strip()
         else:
-            return ""
+             return ""
+
+        # ここでテキストをクリーンアップ
+        text = ''.join(ch for ch in text if unicodedata.category(ch)[0] != 'C')
+        return text
+
     except Exception as e:
         log_error(f"ファイルからのテキスト抽出中にエラーが発生しました: {e}")
         return ""
@@ -117,11 +131,20 @@ def create_corrected_word_file_with_formatting(
                 start_index = paragraph_text.find(incorrect, start_index)
                 end_index = start_index + len(incorrect)
                 paragraph.add_run(paragraph_text[:start_index])
-                run = paragraph.add_run(correct)
-                run.font.highlight_color = HIGHLIGHT_COLOR
+                try:
+                    run = paragraph.add_run(correct)
+                    run.font.highlight_color = 6
+                except UnicodeEncodeError as e:
+                    log_error(f"テキストの追加中にエンコードエラーが発生しました: {e}. 正しい用語をスキップします。")
+                    run = paragraph.add_run(correct.encode('unicode_escape').decode('utf-8'))  # エンコードエラー発生時、エスケープ処理を行う
+                    run.font.highlight_color = 6
                 paragraph_text = paragraph_text[end_index:]
                 start_index = 0
-        paragraph.add_run(paragraph_text)
+        try:
+            paragraph.add_run(paragraph_text)
+        except UnicodeEncodeError as e:
+            log_error(f"テキストの追加中にエンコードエラーが発生しました: {e}. 残りのテキストをスキップします。")
+            paragraph.add_run(paragraph_text.encode('unicode_escape').decode('utf-8')) # エンコードエラー発生時、エスケープ処理を行う
     output = BytesIO()
     doc.save(output)
     output.seek(0)
