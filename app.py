@@ -161,7 +161,7 @@ def create_correction_table(detected: List[Tuple[str, str]]) -> pd.DataFrame:
 def download_excel(df: pd.DataFrame, file_name: str, sheet_name: str):
     """データフレームをExcelファイルとしてダウンロードします."""
     output = BytesIO()
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+    with pd.ExcelWriter(output) as writer:
         df.to_excel(writer, index=False, sheet_name=sheet_name)
     st.download_button(
         label=f"{sheet_name}をダウンロード",
