@@ -1,8 +1,8 @@
 pandas
+streamlit
 python-docx
 rapidfuzz
 pydocx
-streamlit
 PyPDF2
 openpyxl
-xlsxwriter
+lxml
