@@ -91,7 +91,7 @@ def extract_text_from_file(file, file_type: str) -> str:
 # --- Fuzzy Matching ---
 def find_similar_terms(
     text: str, terms: List[str], threshold: int
-) -> List[Tuple[str, str, int]]:
+) -> List[Tuple[str, str]]:
     """テキスト内で類似する用語を検出します."""
     words = text.split()
     detected_terms = []
@@ -99,8 +99,9 @@ def find_similar_terms(
         matches = process.extract(word, terms, scorer=fuzz.partial_ratio, limit=10)
         for match in matches:
             if threshold <= match[1] < 100:
-                detected_terms.append((word, match[0], match[1]))
+                 detected_terms.append((word, match[0]))
     return detected_terms
+
 
 # --- 修正処理 ---
 def apply_corrections(
@@ -151,8 +152,10 @@ def create_corrected_word_file_with_formatting(
     return output
 
 # --- データ表示とダウンロード ---
-def create_correction_table(detected: List[Tuple[str, str, int]]) -> pd.DataFrame:
+def create_correction_table(detected: List[Tuple[str, str]]) -> pd.DataFrame:
     """検出された類似語をデータフレームに変換します."""
+    if not detected:
+        return pd.DataFrame(columns=["原稿内の語", "類似する用語"])
     return pd.DataFrame(detected, columns=["原稿内の語", "類似する用語"])
 
 def download_excel(df: pd.DataFrame, file_name: str, sheet_name: str):
@@ -260,6 +263,7 @@ def process_file(word_file, terms_file, correction_file, kanji_file):
             download_word(corrected_file, "利用漢字表修正済み.docx")
             
     st.markdown(f"<h3 style='text-align: left;'>正誤表と利用漢字表を適用し、{total_replacements}回の修正を行いました！</h3>", unsafe_allow_html=True)
+
 
 # --- Streamlit アプリケーション ---
 st.set_page_config(layout="wide")  # ページ全体のレイアウトをワイドにする
