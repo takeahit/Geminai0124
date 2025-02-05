@@ -200,7 +200,8 @@ def download_word(file: BytesIO, file_name: str):
 st.markdown("<h1 style='text-align: center;'>南江堂用用語チェッカー（笑）</h1>", unsafe_allow_html=True)
 
 # 左右のカラムを作成
-col1, col2 = st.columns([1, 1])
+st.set_page_config(layout="wide")  # ページ全体をワイド表示
+col1, col2 = st.columns([2, 2])  # さらにカラムの比率を調整
 
 # 左側のカラム（Difyチャットボット）
 with col1:
